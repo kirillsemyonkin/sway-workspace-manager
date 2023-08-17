@@ -12,13 +12,10 @@ Usage:
 fn main() -> Result<(), swayipc::Error> {
     let mut connection = Connection::new()?;
 
-    let command = match Command::new(env::args()) {
-        Ok(command) => command,
-        Err(msg) => {
-            eprintln!("{USAGE}");
-            return Err(swayipc::Error::CommandFailed(format!("Parse error: {msg}")));
-        }
-    };
+    let command = Command::new(env::args()).map_err(|msg| {
+        eprintln!("{USAGE}");
+        return swayipc::Error::CommandFailed(format!("Parse error: {msg}"));
+    })?;
 
     let workspaces = Workspaces::get(&mut connection)?.ordered(&mut connection)?;
 

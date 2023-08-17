@@ -26,9 +26,10 @@ pub fn run(
 ) -> Result<(), swayipc::Error> {
     let num_workspaces = workspaces.names().len() - 1;
 
+    use Command::*;
     match command {
-        Command::Reorder { daemon: false } => (),
-        Command::Reorder { daemon: true } => {
+        Reorder { daemon: false } => {},
+        Reorder { daemon: true } => {
             // event loop
             for event in Connection::new()?.subscribe([EventType::Workspace])? {
                 let result = process_event(connection, event);
@@ -38,8 +39,7 @@ pub fn run(
                 }
             }
         }
-
-        Command::Switch { target, carry } => {
+        Switch { target, carry } => {
             let target_index = target.num_existing(workspaces.current_index(), num_workspaces)?;
             let target_name = workspaces.name(target_index);
 
@@ -54,8 +54,7 @@ pub fn run(
 
             Workspaces::get(connection)?.reorder(connection)?;
         }
-
-        Command::Create { target, carry } => {
+        Create { target, carry } => {
             let target_index = target.num_new(workspaces.current_index(), num_workspaces)?;
 
             workspaces.insert(connection, target_index)?;
@@ -70,8 +69,7 @@ pub fn run(
 
             Workspaces::get(connection)?.reorder(connection)?;
         }
-
-        Command::Swap { target } => {
+        Swap { target } => {
             let current_index = workspaces.current_index();
             let current_name = &workspaces.names()[current_index].as_ref().unwrap();
 
@@ -88,8 +86,7 @@ pub fn run(
                 "rename workspace a to \"{current_index}{target_name}\""
             ))?;
         }
-
-        Command::Rename { new_name } => {
+        Rename { new_name } => {
             let current_index = workspaces.current_index();
             let current_name = &workspaces.names()[current_index].as_ref().unwrap();
 

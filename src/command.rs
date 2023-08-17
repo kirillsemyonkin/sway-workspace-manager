@@ -1,3 +1,4 @@
+#[derive(Clone, Copy)]
 pub enum Position {
     Prev { cycle: bool },
     Next { cycle: bool, extra: bool },
@@ -8,14 +9,14 @@ pub enum Position {
 
 impl Position {
     pub fn num_existing(
-        &self,
+        self,
         current_index: usize,
         num_workspaces: usize,
     ) -> Result<usize, swayipc::Error> {
         let (index, len) = (current_index, num_workspaces);
 
         use Position::*;
-        match *self {
+        match self {
             Prev { cycle } => {
                 if index != 1 {
                     Ok(index - 1)
@@ -56,14 +57,14 @@ impl Position {
     }
 
     pub fn num_new(
-        &self,
+        self,
         current_index: usize,
         num_workspaces: usize,
     ) -> Result<usize, swayipc::Error> {
         let (index, len) = (current_index, num_workspaces);
 
         use Position::*;
-        match *self {
+        match self {
             Prev { .. } => Ok(index),
             Next { .. } => Ok(index + 1),
             Start => Ok(1),
@@ -81,6 +82,7 @@ impl Position {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Command {
     Reorder { daemon: bool },
     Switch { target: Position, carry: bool },
