@@ -68,7 +68,7 @@ impl Position {
             Prev { .. } => Ok(index),
             Next { .. } => Ok(index + 1),
             Start => Ok(1),
-            End => Ok(len + 1),
+            End { .. } => Ok(len + 1),
             Num { num, .. } => {
                 if 1 <= num && num <= len + 1 {
                     Ok(num)
