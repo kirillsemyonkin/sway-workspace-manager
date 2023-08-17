@@ -1,8 +1,8 @@
 pub enum Position {
     Prev { cycle: bool },
-    Next { cycle: bool },
+    Next { cycle: bool, extra: bool },
     Start,
-    End,
+    End { extra: bool },
     Num { num: usize, extra: bool },
 }
 
@@ -14,40 +14,36 @@ impl Position {
     ) -> Result<usize, swayipc::Error> {
         let (index, len) = (current_index, num_workspaces);
 
+        use Position::*;
         match *self {
-            Position::Prev { cycle } => {
-                if index == 1 {
-                    if cycle {
-                        Ok(len)
-                    } else {
-                        Err(swayipc::Error::CommandFailed(
-                            "No previous workspace in the first workspace".to_string(),
-                        ))
-                    }
-                } else {
+            Prev { cycle } => {
+                if index != 1 {
                     Ok(index - 1)
-                }
-            }
-
-            Position::Next { cycle } => {
-                if index == len {
-                    if cycle {
-                        Ok(1)
-                    } else {
-                        Err(swayipc::Error::CommandFailed(
-                            "No next workspace in the last workspace".to_string(),
-                        ))
-                    }
+                } else if cycle {
+                    Ok(len)
                 } else {
-                    Ok(index + 1)
+                    Err(swayipc::Error::CommandFailed(
+                        "No previous workspace in the first workspace".to_string(),
+                    ))
                 }
             }
-
-            Position::Start => Ok(1),
-
-            Position::End => Ok(len),
-
-            Position::Num { num, extra } => {
+            Next { cycle, extra } => {
+                if index != len {
+                    Ok(index + 1)
+                } else if cycle {
+                    Ok(1)
+                } else if extra {
+                    Ok(index + 1)
+                } else {
+                    Err(swayipc::Error::CommandFailed(
+                        "No next workspace in the last workspace".to_string(),
+                    ))
+                }
+            }
+            Start => Ok(1),
+            End { extra: true } => Ok(len + 1),
+            End { extra: false } => Ok(len),
+            Num { num, extra } => {
                 if 1 <= num && (!extra && num <= len || extra && num <= len + 1) {
                     Ok(num)
                 } else {
@@ -66,16 +62,13 @@ impl Position {
     ) -> Result<usize, swayipc::Error> {
         let (index, len) = (current_index, num_workspaces);
 
+        use Position::*;
         match *self {
-            Position::Prev { cycle: _ } => Ok(index),
-
-            Position::Next { cycle: _ } => Ok(index + 1),
-
-            Position::Start => Ok(1),
-
-            Position::End => Ok(len + 1),
-
-            Position::Num { num, .. } => {
+            Prev { .. } => Ok(index),
+            Next { .. } => Ok(index + 1),
+            Start => Ok(1),
+            End => Ok(len + 1),
+            Num { num, .. } => {
                 if 1 <= num && num <= len + 1 {
                     Ok(num)
                 } else {
@@ -98,18 +91,20 @@ pub enum Command {
 
 impl Command {
     pub fn new(mut args: impl Iterator<Item = String>) -> Result<Self, &'static str> {
-        args.next();
+        use Command::*;
+
+        let _cmd_alias = args.next();
 
         let verb = args.next().ok_or("not enough arguments")?;
 
         if verb.as_str() == "reorder" {
             let daemon = args.any(|flag| flag.as_str() == "--daemon");
-            return Ok(Self::Reorder { daemon });
+            return Ok(Reorder { daemon });
         }
 
         if verb.as_str() == "rename" {
-            let new_name = args.next().ok_or("not enough argumets")?;
-            return Ok(Self::Rename { new_name });
+            let new_name = args.next().ok_or("not enough arguments")?;
+            return Ok(Rename { new_name });
         }
 
         let position = args.next().ok_or("not enough arguments")?;
@@ -120,41 +115,41 @@ impl Command {
             match flag.as_str() {
                 "--cycle" => cycle = true,
                 "--extra" => extra = true,
-                _ => (),
+                _ => {}
             };
         }
 
+        use Position::*;
         let target = match position.as_str() {
-            "prev" => Ok(Position::Prev { cycle }),
-            "next" => Ok(Position::Next { cycle }),
-            "start" => Ok(Position::Start),
-            "end" => Ok(Position::End),
+            "prev" => Prev { cycle },
+            "next" => Next { cycle, extra },
+            "start" => Start,
+            "end" => End { extra },
             other => other
                 .parse::<usize>()
-                .map(|num| Position::Num { num, extra })
-                .or(Err("invalid target")),
-        }?;
+                .map(|num| Num { num, extra })
+                .or(Err("invalid target"))?,
+        };
 
-        match verb.as_str() {
-            "switch" => Ok(Self::Switch {
+        Ok(match verb.as_str() {
+            "switch" => Switch {
                 target,
                 carry: false,
-            }),
-            "move" => Ok(Self::Switch {
+            },
+            "move" => Switch {
                 target,
                 carry: true,
-            }),
-            "create" => Ok(Self::Create {
+            },
+            "create" => Create {
                 target,
                 carry: false,
-            }),
-            "move-to-new" => Ok(Self::Create {
+            },
+            "move-to-new" => Create {
                 target,
                 carry: true,
-            }),
-            "swap" => Ok(Self::Swap { target }),
-
-            _ => Err("invalid commnd"),
-        }
+            },
+            "swap" => Swap { target },
+            _ => Err("invalid command")?,
+        })
     }
 }
