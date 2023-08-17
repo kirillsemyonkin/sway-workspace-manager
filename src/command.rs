@@ -82,7 +82,6 @@ impl Position {
     }
 }
 
-#[derive(Clone, Copy)]
 pub enum Command {
     Reorder { daemon: bool },
     Switch { target: Position, carry: bool },
